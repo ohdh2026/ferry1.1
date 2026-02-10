@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>선박 운항 일지</title>
+<style>
+body { font-family:'맑은 고딕'; background:#f5faff; padding:20px; max-width:1200px; margin:auto; }
+h1 { color:#0066cc; }
+table { width:100%; border-collapse:collapse; background:#e6f2ff; margin-bottom:20px; }
+th,td { border:1px solid #0066cc; padding:8px; text-align:center; }
+th { background:#0066cc; color:#fff; }
+input, select, textarea { width:100%; padding:6px; box-sizing:border-box; }
+textarea { min-height:70px; }
+button { background:#0066cc; color:#fff; padding:10px 20px; border:none; cursor:pointer; margin-right:10px;}
+</style>
+</head>
+<body>
+
+<h1>🚢 선박 운항 일지</h1>
+
+<table>
+<tr>
+  <th>선박명</th>
+  <td><select id="ship"><option value="">선택</option><option>인어공주호</option><option>탐나라호</option><option>알라딘호</option><option>아일레나호</option><option>가우디호</option><option>남이51호</option></select></td>
+  <th>출발지</th>
+<td><select id="startSelect"><option value="">선택</option>
+<option>가평나루</option><option>남이나루</option><option>메타나루</option></select></td>`
+
+
+</tr>
+<tr>
+  <th>날짜</th><td><input type="date" id="date"></td>
+  <th>출발시간</th><td><input type="time" id="departTime"></td>
+</tr>
+<tr>
+  <th>도착시간</th><td><input type="time" id="arriveTime"></td>
+  <th>승객인원</th><td><input type="number" id="cargoCount" min="0"></td>
+</tr>
+<tr>
+  <th>선장</th><td>
+<select id="captainMain"><option value="">선택</option>
+<option>오성택</option><option>김광엽</option><option>신교철</option><optios>신지원</option><option>진창억</option><option>조신희</option><option>기타</option></select></td>
+
+
+  <th>기관장</th><td>
+<select id="captainSub"><option value="">선택</option>
+<option>김영창</option><option>정윤모</option><option>오승철</option><optios>강춘식</option><option>이준길</option><option>송재운</option><option>기타</option></select></td>
+
+
+</tr>
+<tr>
+  <th>주유량</th>
+<td><input type="number" id="oilMount" min="0"></td>
+
+  <th>소속</th><td><input id="department" value="운항팀"></td>
+</tr>
+</table>
+
+<h3>👨‍✈️ 승무원 명단</h3>
+<select id="crewSelect"><option value="">선택</option>
+<option>김정덕</option><option>김건한</option><option>조신희</option><optios>오성택</option><option>최승훈</option><option>이시영</option><option>없음</option></select>
+<h3>특이사항</h3>
+<textarea id="notes"></textarea>
+
+<br><br>
+<button id="saveBtn">저장하기</button>
+<button id="downloadBtn">엑셀 다운로드</button>
+
+<hr>
+<h2>📋 저장된 운항 기록</h2>
+<table>
+<thead>
+<tr>
+  <th>선박명</th><th>출발지</th><th>날짜</th>
+  <th>출발시간</th><th>도착시간</th><th>선장</th><th>기관장</th><th>승객인원</th>
+  <th>주유량</th><th>승무원</th><th>특이사항</th>
+</tr>
+</thead>
+<tbody id="logTableBody"></tbody>
+</table>
+
+<script>
+let db;
+const request = indexedDB.open("Ferry1",1);
+request.onupgradeneeded = e => {
+  db = e.target.result;
+  if(!db.objectStoreNames.contains("logs")){
+    db.createObjectStore("logs",{keyPath:"id",autoIncrement:true});
+  }
+};
+request.onsuccess = e => {
+  db = e.target.result;
+  loadLogs();
+};
+
+document.getElementById("saveBtn").addEventListener("click", saveLog);
+
+function saveLog(){
+  if(!db) return;
+
+  const data = {
+    ship: document.getElementById("ship").value,
+    startSelect: document.getElementById("startSelect").value,
+    date: document.getElementById("date").value,
+    depart: document.getElementById("departTime").value,
+    arrive: document.getElementById("arriveTime").value,
+    captainMain: document.getElementById("captainMain").value,
+    captainSub: document.getElementById("captainSub").value,
+    cargo: document.getElementById("cargoCount").value,
+    oil: document.getElementById("oilMount").value,
+    crew: document.getElementById("crewSelect").value,
+    notes: document.getElementById("notes").value
+  };
+
+  if(!data.depart||!data.arrive||!data.cargo){
+    alert("필수 항목 누락"); return;
+  }
+
+  const tx = db.transaction("logs","readwrite");
+  tx.objectStore("logs").add(data);
+  tx.oncomplete = ()=>{
+    appendRow(data);
+    clearForm();
+  };
+}
+
+function appendRow(d){
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td>${d.ship}</td><td>${d.startSelect}</td><td>${d.date}</td>
+    <td>${d.depart}</td><td>${d.arrive}</td><td>${d.captainMain}</td><td>${d.captainSub}</td>
+    <td>${d.cargo}</td><td>${d.oil}</td><td>${d.crew}</td><td>${d.notes}</td>
+  `;
+  document.getElementById("logTableBody").appendChild(tr);
+}
+
+function clearForm(){
+  document.querySelectorAll("input, textarea").forEach(e=>e.value="");
+  document.getElementById("crewSelect").value="";
+}
+
+function loadLogs(){
+  const tbody = document.getElementById("logTableBody");
+  tbody.innerHTML="";
+  const tx = db.transaction("logs","readonly");
+  tx.objectStore("logs").getAll().onsuccess=e=>{
+    e.target.result.forEach(l=> appendRow(l));
+  };
+}
+
+document.getElementById("downloadBtn").addEventListener("click", function(){
+  let xls = "선박명,톤수,날짜,출발시간,도착시간,선장,기관장,승객인원,주유량,승무원이사항\n";
+  const rows = document.querySelectorAll("#logTableBody tr");
+  rows.forEach(r=>{
+    const cols = r.querySelectorAll("td");
+    let line = [];
+    cols.forEach(c=>{
+      line.push('"' + c.textContent.replace(/"/g,'""') + '"');
+    });
+     xls += line.join(",") + "\n";
+  });
+  const books = "\uFEFF";
+  const blob = new Blob([books + xls],{type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "운항기록";
+  a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
